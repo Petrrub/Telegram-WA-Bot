@@ -6,26 +6,34 @@ import (
 	"log"
 	"net/http"
 	_ "net/http"
+	"os"
 	"strings"
 )
 
 func main() {
-	bot, err := tgbotapi.NewBotAPI("5533440682:AAEkizv_07B9ZY_z1IQDhlahi6lbJo8jPXQ")
+	//Get tokens
+	dat, err := os.ReadFile("token.txt")
 	if err != nil {
 		log.Panic(err)
 	}
 
-	//photoBytes := []byte(response)
+	tokens := strings.Split(string(dat), "\n")
+	if len(tokens) != 2 || len(tokens[0]) == 0 || len(tokens[1]) == 0 {
+		log.Fatal("\nYou must use two tokens without null value. Example:\nTGtoken\nWAToken ")
+	}
+	tokens[1] = strings.ReplaceAll(tokens[1], "\r", "")
+
+	//Start bot
+	bot, err := tgbotapi.NewBotAPI(strings.ReplaceAll(tokens[0], "\r", ""))
+	if err != nil {
+		log.Panic(err)
+	}
 
 	bot.Debug = true
-
 	log.Printf("Authorized on account %s", bot.Self.UserName)
-
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60
-
 	updates := bot.GetUpdatesChan(u)
-
 	for update := range updates {
 		if update.Message != nil { // If we got a message
 			log.Printf("[%s] %s", update.Message.From.UserName, update.Message.Text)
@@ -35,7 +43,7 @@ func main() {
 			} else {
 				msgfirst := tgbotapi.NewMessage(update.Message.Chat.ID, "Обработка...")
 				bot.Send(msgfirst)
-				msg := tgbotapi.NewPhoto(update.Message.Chat.ID, GetUrlFile(strings.ReplaceAll(update.Message.Text, "+", "%2B")))
+				msg := tgbotapi.NewPhoto(update.Message.Chat.ID, GetUrlFile(strings.ReplaceAll(update.Message.Text, "+", "%2B"), tokens[1]))
 				msg.ReplyToMessageID = update.Message.MessageID
 
 				bot.Send(msg)
@@ -44,16 +52,15 @@ func main() {
 	}
 }
 
-func GetUrlFile(message string) tgbotapi.FileBytes {
-	url := "http://api.wolframalpha.com/v1/simple?appid=73QR56-W8XYL434X9&i=" + message + "&layout=labelbar"
+func GetUrlFile(message string, tokenWA string) tgbotapi.FileBytes {
+	log.Print(tokenWA + tokenWA)
+	url := "http://api.wolframalpha.com/v1/simple?appid=" + tokenWA + "&i=" + message + "&layout=labelbar"
 	response, e := http.Get(url)
 	if e != nil {
 		log.Fatal(e)
 	}
-	//var b bytes.Buffer
 	phBytes, _ := io.ReadAll(response.Body)
-
-	//b.Write([]bytes(response.ContentLength))
+	response.Body.Close()
 	photoFileBytes := tgbotapi.FileBytes{
 		Name:  "gif",
 		Bytes: phBytes,
